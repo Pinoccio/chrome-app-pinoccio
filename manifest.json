@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+
+  "name": "Pinoccio",
+  "description": "Setup and connect to your Pinoccio devices.",
+  "version": "1.0",
+
+  "app":{
+    "background":{
+      "scripts":["serial.js", "tcp-server.js", "async.js", "main.js"]
+    }
+  },
+  "permissions":[
+    "usb", 
+    "serial",
+    { "socket" : ["tcp-listen"] }
+  ],
+  "optional_permissions": [ 
+    {
+      "usbDevices": [
+        {
+          "vendorId":7504,
+          "productId":24657
+        }
+      ]
+    }
+  ]
+}

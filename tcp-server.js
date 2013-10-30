@@ -49,8 +49,6 @@ const DEFAULT_MAX_CONNECTIONS=5;
 
     // server socket (one server connection, accepts and opens one socket per client)
     this.serverSocketId = null;
-
-    log('initialized tcp server, not listening yet');
   }
 
 
@@ -78,9 +76,10 @@ const DEFAULT_MAX_CONNECTIONS=5;
    * @see http://developer.chrome.com/trunk/apps/socket.html#method-create
    * @param {Function} callback The function to call on connection
    */
-  TcpServer.prototype.listen = function(callback) {
+  TcpServer.prototype.listen = function(listenCB, acceptCB) {
     // Register connect callback.
-    this.callbacks.connect = callback;
+    this.callbacks.listen = listenCB;
+    this.callbacks.connect = acceptCB;
     socket.create('tcp', {}, this._onCreate.bind(this));
   };
 
@@ -131,6 +130,9 @@ const DEFAULT_MAX_CONNECTIONS=5;
    * @private
    */
   TcpServer.prototype._onListenComplete = function(resultCode) {
+    if (this.callbacks.listen) {
+      this.callbacks.listen(resultCode);
+    }
     if (resultCode===0) {
       socket.accept(this.serverSocketId, this._onAccept.bind(this));
     } else {

@@ -13,9 +13,8 @@
   "permissions":[
     "usb", 
     "serial",
-    { "socket" : ["tcp-listen"] }
-  ],
-  "optional_permissions": [ 
+    "storage",
+    { "socket" : ["tcp-listen"] },
     {
       "usbDevices": [
         {

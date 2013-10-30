@@ -108,6 +108,11 @@
     }.bind(this));
   };
 
+  SerialConnection.prototype.writeRaw = function(msg, callback) {
+    this.callbacks.write = callback;
+    serial.write(this.connectionId, msg, this.onWrite.bind(this));
+  }
+
   SerialConnection.prototype.unechoWrite = function(msg, callback) {
     var self = this;
     console.log("Flush write (%d) -%s-", msg.length, msg);

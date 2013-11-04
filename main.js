@@ -1,3 +1,4 @@
+var DEBUG_MODE = true;
 var serial = chrome.serial;
 var timeout = 100;
 var VENDOR_ID = 0x1d50;
@@ -7,6 +8,13 @@ var tcpServer;
 var haveDevice = false;
 
 
+var myLog = Function.prototype.bind.call(console.log, console);
+function debugLog() {
+  if (DEBUG_MODE) {
+    var args = Array.prototype.slice.call(arguments, 0);
+    myLog.apply(console, args);
+  }
+}
 
 var findAttempts = 0;
 function checkForDevice(onFound) {
@@ -60,6 +68,7 @@ function ab2str(buf) {
   for (var i=0; i<bufView.length; i++) {
     unis.push(bufView[i]);
   }
+  console.log(unis);
   return String.fromCharCode.apply(null, unis);
 }
 
@@ -79,6 +88,31 @@ function processResponse(buf) {
   return resp;
 }
 
+var cmdReadStates = ["Start", "GetSequenceNumber", "GetMessageSize1", "GetMessageSize2", "GetToken", "GetData", "GetChecksum", "Done"];
+function readCmd(conn, timeout, cbDone) {
+  var state = 0;
+  var timedout = false;
+  if (typeof timeout === "function") {
+    cbDone = timeout;
+    timeout = undefined;
+  }
+  if (timeout === undefined) timeout = 1000;
+  setTimeout(function() { timedout = true; }, timeout);
+  async.whilst (function() {
+    return state < cmdReadStates.length && !timedout
+  }, function(cbStep) {
+    conn.read(1, function(readInfo) {
+      console.log("Read some");
+      if (readInfo.bytesRead > 0) {
+        var curByte = (new Uint8Array(readInfo.data))[0];
+        debugLog("Read: %d", curByte);
+      }
+      cbStep();
+    });
+  }, function(err) {
+  })
+}
+
 var seq = 0;
 function sendBootloadCommand(port, msg) {
   var bufLen = 6 + msg.length;
@@ -92,36 +126,78 @@ function sendBootloadCommand(port, msg) {
   dv.setUint16(2, msg.length, false);
   checksum ^= dv.getUint8(2);
   checksum ^= dv.getUint8(3);
+  dv.setUint8(4, 0x0e);
+  checksum ^= dv.getUint8(4);
   for (var x = 0; x < msg.length; ++x) {
-    dv.setUint8(4 + x, msg[x]);
+    dv.setUint8(5 + x, msg[x]);
     checksum ^= msg[x];
   }
   dv.setUint8(bufLen - 1, checksum);
 
-  console.log("Checksum is ", checksum);
-  console.log("Should send ", ab2str(buffer));
+  console.log("Buffer:");
+  for (var i = 0; i < 6 + msg.length; ++i) {
+    console.log("%d", dv.getUint8(i));
+  }
 
   var conn = new SerialConnection();
   conn.connect(port, function() {
     setTimeout(function() {
+      /*
       conn.setControlSignals({dtr:false, rts:false}, function() {
         setTimeout(function() {
           conn.setControlSignals({dtr:true, rts:true}, function() {
             setTimeout(function() {
-              conn.writeRaw(buffer, function() {
-                conn.read(200, function(readInfo) {
-                  console.log("HERE");
-                  console.log(readInfo);
-                  if (readInfo.bytesRead > 0) {
-                    console.log(ab2str(readInfo.data));
-                    console.log(processResponse(readInfo.data));
-                  }
-                });
+            */
+              conn.read(200, function(readInfo) {
+                setTimeout(function() {
+                  conn.writeRaw(buffer, function() {
+                    setTimeout(function() {
+                      readCmd(conn, function() {
+                      })
+/*
+                      conn.read(1, function(readInfo) {
+                        console.log("HERE");
+                        console.log(readInfo);
+                        if (readInfo.bytesRead > 0) {
+                          console.log(ab2str(readInfo.data));
+                          //console.log(processResponse(readInfo.data));
+                        }
+                        conn.read(1, function(readInfo) {
+                          console.log("HERE");
+                          console.log(readInfo);
+                          if (readInfo.bytesRead > 0) {
+                            console.log(ab2str(readInfo.data));
+                            //console.log(processResponse(readInfo.data));
+                          }
+                          conn.read(1, function(readInfo) {
+                            console.log("HERE");
+                            console.log(readInfo);
+                            if (readInfo.bytesRead > 0) {
+                              console.log(ab2str(readInfo.data));
+                              //console.log(processResponse(readInfo.data));
+                            }
+                            conn.read(1, function(readInfo) {
+                              console.log("HERE");
+                              console.log(readInfo);
+                              if (readInfo.bytesRead > 0) {
+                                console.log(ab2str(readInfo.data));
+                                //console.log(processResponse(readInfo.data));
+                              }
+                            });
+                          });
+                        });
+                      });
+                      */
+                    }, 20);
+                  });
+                }, 20);
               });
-            }, 2);
+            /*
+            }, 20);
           });
-        }, 2);
+        }, 20);
       });
+      */
     }, 20);
   });
 
@@ -136,7 +212,7 @@ function getPorts(cbDone) {
     async.detect(ports, function(portName, cbStep) {
       console.log("Trying ", portName);
       if (usbttyRE.test(portName)) {
-        sendBootloadCommand(portName, "\x30");
+        sendBootloadCommand(portName, [0x31]);
         return;
         tryPinoccioSerial(portName, function(conn) {
           if (!conn) return cbStep(false);

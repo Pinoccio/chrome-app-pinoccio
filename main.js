@@ -96,7 +96,7 @@ function readCmd(conn, timeout, cbDone) {
     cbDone = timeout;
     timeout = undefined;
   }
-  if (timeout === undefined) timeout = 1000;
+  if (timeout === undefined) timeout = 2000;
   setTimeout(function() { timedout = true; }, timeout);
   async.whilst (function() {
     return state < cmdReadStates.length && !timedout
@@ -105,7 +105,7 @@ function readCmd(conn, timeout, cbDone) {
       console.log("Read some");
       if (readInfo.bytesRead > 0) {
         var curByte = (new Uint8Array(readInfo.data))[0];
-        debugLog("Read: %d", curByte);
+        debugLog("Read: %d %s", curByte, String.fromCharCode(curByte));
       }
       cbStep();
     });
@@ -141,65 +141,22 @@ function sendBootloadCommand(port, msg) {
 
   var conn = new SerialConnection();
   conn.connect(port, function() {
-    setTimeout(function() {
-      /*
-      conn.setControlSignals({dtr:false, rts:false}, function() {
-        setTimeout(function() {
-          conn.setControlSignals({dtr:true, rts:true}, function() {
-            setTimeout(function() {
-            */
-              conn.read(200, function(readInfo) {
-                setTimeout(function() {
-                  conn.writeRaw(buffer, function() {
-                    setTimeout(function() {
-                      readCmd(conn, function() {
-                      })
-/*
-                      conn.read(1, function(readInfo) {
-                        console.log("HERE");
-                        console.log(readInfo);
-                        if (readInfo.bytesRead > 0) {
-                          console.log(ab2str(readInfo.data));
-                          //console.log(processResponse(readInfo.data));
-                        }
-                        conn.read(1, function(readInfo) {
-                          console.log("HERE");
-                          console.log(readInfo);
-                          if (readInfo.bytesRead > 0) {
-                            console.log(ab2str(readInfo.data));
-                            //console.log(processResponse(readInfo.data));
-                          }
-                          conn.read(1, function(readInfo) {
-                            console.log("HERE");
-                            console.log(readInfo);
-                            if (readInfo.bytesRead > 0) {
-                              console.log(ab2str(readInfo.data));
-                              //console.log(processResponse(readInfo.data));
-                            }
-                            conn.read(1, function(readInfo) {
-                              console.log("HERE");
-                              console.log(readInfo);
-                              if (readInfo.bytesRead > 0) {
-                                console.log(ab2str(readInfo.data));
-                                //console.log(processResponse(readInfo.data));
-                              }
-                            });
-                          });
-                        });
-                      });
-                      */
-                    }, 20);
-                  });
-                }, 20);
+    conn.setControlSignals({rts:false, dtr:false}, function() {
+      setTimeout(function() {
+        conn.setControlSignals({rts:true, dtr:true}, function() {
+          setTimeout(function() {
+            conn.read(100, function(readInfo) {
+              //setTimeout(function() {
+              conn.writeRaw(buffer, function() {
+                readCmd(conn, function() {
+                })
               });
-            /*
-            }, 20);
+            });
+           }, 50);
           });
-        }, 20);
+        }, 250);
       });
-      */
-    }, 20);
-  });
+    });
 
   ++seq;
   if (seq > 0xff) seq = 0;

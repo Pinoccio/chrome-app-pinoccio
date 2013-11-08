@@ -72,13 +72,13 @@ Device.prototype.sendBootloadCommand = function(msg, cbDone) {
 
   ++this.blSeq;
   if (this.blSeq > 0xff) this.blSeq = 0;
-        
+
   this.conn.writeRaw(buffer, function() {
     this.readBootloadCommand(cbDone);
   }.bind(this));
 
   /*
-    
+
   var conn = new SerialConnection();
   conn.connect(port, function() {
     conn.setControlSignals({rts:true, dtr:true}, function() {

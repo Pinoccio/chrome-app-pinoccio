@@ -7,7 +7,7 @@
 
   "app":{
     "background":{
-      "scripts":["serial.js", "tcp-server.js", "async.js", "main.js"]
+      "scripts":["pinoccio.js", "serial.js", "tcp-server.js", "async.js", "main.js"]
     }
   },
   "permissions":[

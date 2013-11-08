@@ -2,6 +2,7 @@
   function SerialConnection() {
     this.connectionId = -1;
     this.callbacks = {};
+    this._flushOnWrite = false;
   }
 
   SerialConnection.prototype.connect = function(device, callback) {
@@ -25,14 +26,11 @@
   SerialConnection.prototype.readBytes = function(readlen, callback) {
     var retData = "";
     var self = this;
-    console.log("Going to read %d bytes", readlen);
     function processRead(readInfo) {
       retData += self.ab2str(readInfo.data);
       if (readInfo.bytesRead > 0 && readInfo.readlen - retData.length > 0) {
-        console.log("Need to read more %d bytes", readInfo.readlen - retData.length);
         serial.read(this.connectionId, readlen - retData.length, processRead);
       } else {
-        console.log("Returning %d bytes", retData.length);
         callback(retData);
       }
     }
@@ -115,11 +113,9 @@
 
   SerialConnection.prototype.unechoWrite = function(msg, callback) {
     var self = this;
-    console.log("Flush write (%d) -%s-", msg.length, msg);
     this.flushedWrite(msg, function(writeInfo) {
       // We have to add +1 for the newline here
       self.readBytes(msg.length + 1, function(readMsg) {
-        console.log("Flushed (%d) -%s-", readMsg.length, readMsg);
         if (readMsg.trim() != msg.trim()) {
           console.log("Mismatch on echo strings: -%s:%s-", readMsg.trim(), msg.trim());
         }

@@ -1,12 +1,10 @@
-var DEBUG_MODE = true;
-var serial = chrome.serial;
+var DEBUG_MODE = false;
 var timeout = 100;
 var VENDOR_ID = 0x1d50;
 var PRODUCT_ID = 0x6051;
 var clientSock;
 var tcpServer;
 var haveDevice = false;
-
 
 var myLog = Function.prototype.bind.call(console.log, console);
 function debugLog() {
@@ -62,105 +60,6 @@ function tryPinoccioSerial(port, cbDone) {
   });
 }
 
-function ab2str(buf) {
-  var bufView=new Uint8Array(buf);
-  var unis=[];
-  for (var i=0; i<bufView.length; i++) {
-    unis.push(bufView[i]);
-  }
-  console.log(unis);
-  return String.fromCharCode.apply(null, unis);
-}
-
-function processResponse(buf) {
-  var resp = {};
-  var dv = new DataView(buf);
-  resp.start = dv.getUint8(0);
-  resp.seq = dv.getUint8(1);
-  resp.msgLen = dv.getUint16(2, false);
-  resp.msg = [];
-  var cur = 3;
-  for (var i = 0; i < resp.msgLen; ++i) {
-    resp.msg.push(dv.getUint8(cur + i));
-  }
-  resp.checksum = dv.getUint8(buf.byteLength - 1);
-
-  return resp;
-}
-
-var cmdReadStates = ["Start", "GetSequenceNumber", "GetMessageSize1", "GetMessageSize2", "GetToken", "GetData", "GetChecksum", "Done"];
-function readCmd(conn, timeout, cbDone) {
-  var state = 0;
-  var timedout = false;
-  if (typeof timeout === "function") {
-    cbDone = timeout;
-    timeout = undefined;
-  }
-  if (timeout === undefined) timeout = 2000;
-  setTimeout(function() { timedout = true; }, timeout);
-  async.whilst (function() {
-    return state < cmdReadStates.length && !timedout
-  }, function(cbStep) {
-    conn.read(1, function(readInfo) {
-      console.log("Read some");
-      if (readInfo.bytesRead > 0) {
-        var curByte = (new Uint8Array(readInfo.data))[0];
-        debugLog("Read: %d %s", curByte, String.fromCharCode(curByte));
-      }
-      cbStep();
-    });
-  }, function(err) {
-  })
-}
-
-var seq = 0;
-function sendBootloadCommand(port, msg) {
-  var bufLen = 6 + msg.length;
-  var buffer = new ArrayBuffer(bufLen);
-  var dv = new DataView(buffer);
-  var checksum = 0;
-  dv.setUint8(0, 0x1b);
-  checksum ^= 0x1b;
-  dv.setUint8(1, seq);
-  checksum ^= seq;
-  dv.setUint16(2, msg.length, false);
-  checksum ^= dv.getUint8(2);
-  checksum ^= dv.getUint8(3);
-  dv.setUint8(4, 0x0e);
-  checksum ^= dv.getUint8(4);
-  for (var x = 0; x < msg.length; ++x) {
-    dv.setUint8(5 + x, msg[x]);
-    checksum ^= msg[x];
-  }
-  dv.setUint8(bufLen - 1, checksum);
-
-  console.log("Buffer:");
-  for (var i = 0; i < 6 + msg.length; ++i) {
-    console.log("%d", dv.getUint8(i));
-  }
-
-  var conn = new SerialConnection();
-  conn.connect(port, function() {
-    conn.setControlSignals({rts:false, dtr:false}, function() {
-      setTimeout(function() {
-        conn.setControlSignals({rts:true, dtr:true}, function() {
-          setTimeout(function() {
-            conn.read(100, function(readInfo) {
-              //setTimeout(function() {
-              conn.writeRaw(buffer, function() {
-                readCmd(conn, function() {
-                })
-              });
-            });
-           }, 50);
-          });
-        }, 250);
-      });
-    });
-
-  ++seq;
-  if (seq > 0xff) seq = 0;
-}
 
 function getPorts(cbDone) {
   var usbttyRE = /tty\.usb/g;
@@ -169,13 +68,19 @@ function getPorts(cbDone) {
     async.detect(ports, function(portName, cbStep) {
       console.log("Trying ", portName);
       if (usbttyRE.test(portName)) {
-        sendBootloadCommand(portName, [0x31]);
-        return;
-        tryPinoccioSerial(portName, function(conn) {
-          if (!conn) return cbStep(false);
-          console.log("This is the one: ", portName);
-          port = conn;
-          cbStep(true);
+
+        var device = new pinoccio.Device(port);
+        device.connect(portName, function() {
+          device.signOn(function() {
+            console.log("DONE READ");
+            return;
+            tryPinoccioSerial(portName, function(conn) {
+              if (!conn) return cbStep(false);
+              console.log("This is the one: ", portName);
+              port = conn;
+              cbStep(true);
+            });
+          });
         });
       } else {
         cbStep(false);

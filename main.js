@@ -1,10 +1,7 @@
 var DEBUG_MODE = false;
 var timeout = 100;
-var VENDOR_ID = 0x1d50;
-var PRODUCT_ID = 0x6051;
 var clientSock;
 var tcpServer;
-var haveDevice = false;
 
 var myLog = Function.prototype.bind.call(console.log, console);
 function debugLog() {
@@ -12,23 +9,6 @@ function debugLog() {
     var args = Array.prototype.slice.call(arguments, 0);
     myLog.apply(console, args);
   }
-}
-
-var findAttempts = 0;
-function checkForDevice(onFound) {
-  haveDevice = false;
-  console.log("Checking for USB device");
-  chrome.usb.getDevices({"vendorId": VENDOR_ID, "productId": PRODUCT_ID}, function(devices) {
-    if (devices && devices.length > 0) {
-      haveDevice = true;
-      console.log("FOUND IT");
-      onFound(true);
-    } else {
-      // TODO:  A max number of attempts?
-      findAttempts += 1;
-      setTimeout(function() { checkForDevice(onFound); }, 500);
-    }
-  });
 }
 
 function tryPinoccioSerial(port, cbDone) {
@@ -68,19 +48,11 @@ function getPorts(cbDone) {
     async.detect(ports, function(portName, cbStep) {
       console.log("Trying ", portName);
       if (usbttyRE.test(portName)) {
-
-        var device = new pinoccio.Device(port);
-        device.connect(portName, function() {
-          device.signOn(function() {
-            console.log("DONE READ");
-            return;
-            tryPinoccioSerial(portName, function(conn) {
-              if (!conn) return cbStep(false);
-              console.log("This is the one: ", portName);
-              port = conn;
-              cbStep(true);
-            });
-          });
+        tryPinoccioSerial(portName, function(conn) {
+          if (!conn) return cbStep(false);
+          console.log("This is the one: ", portName);
+          port = conn;
+          cbStep(true);
         });
       } else {
         cbStep(false);
@@ -109,63 +81,38 @@ chrome.runtime.onInstalled.addListener(function(details) {
 });
 
 chrome.runtime.onSuspend.addListener(function() {
-  tcpServer.disconnect();
+  //tcpServer.disconnect();
   chrome.storage.local.set({lastUsedSocket:null});
 });
 
-chrome.app.runtime.onLaunched.addListener(function(data) {
-  console.log("We launched");
-
-  /*
-  getPerms();
-
-      chrome.app.window.create('main.html', { 
-        id: 'main',
-        bounds: {width: 300, height: 300}
-      }, function(appWin) {
-        setTimeout(function() {
-          console.log(appWin.contentWindow.document.getElementById);
-          var E = appWin.contentWindow.document.querySelector("#startIt");
-          console.log(E);
-          E.addEventListener("click", function() {
-            console.log("In the button");
-            getPerms();
-          });
-        }, 1000);
-      });
-  */
-  // This magic is to work around a bug when you reload locally multiple times
-  // and you basically cause an EADDRINUSE.  Here we forcibly make sure the last
-  // one is gone.
-  chrome.storage.local.get(["lastUsedSocket"], function(item) {
-    if (item.lastUsedSocket > 0) {
-      chrome.socket.disconnect(item.lastUsedSocket);
+chrome.runtime.onMessageExternal.addListener(function(msg, sender, responder) {
+// TODO:  Bootloader type stufff
+/*
+   var device = new pinoccio.Device(port);
+   device.connect(portName, function() {
+     device.signOn(function() {
+       console.log("DONE READ");
+       return;
+     });
+   });
+ */
+var cmds = {
+  detect:function() {
+    if (!msg.timeout) {
+      return responder({error:"A timeout must be specified when searching for the device."});
     }
-    chrome.socket.getInfo(1, function(info) {
-      console.log("socket info", info);
+    pinoccio.checkForDevice(msg.timeout, function(err, foundIt) {
+      var resp = {
+        found:foundIt === true ? true : false
+      };
+      if (err) resp.error = err;
+      responder(resp);
     });
-    if (tcpServer === undefined) {
-      var tcpServer = new TcpServer("127.0.0.1", 16402, {maxConnections:1});
-      tcpServer.listen(function(result) {
-        console.log("TCP Server is listening");
-        chrome.storage.local.set({lastUsedSocket:tcpServer.serverSocketId});
-      }, function(newSock) {
-        clientSock = newSock;
-        if (haveDevice) {
-          clientSock.sendMessage("{\"haveDevice\":true}");
-        }
-      });
-    }
-  });
-
-  checkForDevice(function(foundIt) {
-    if (!foundIt) {
-      console.error("We got called back, but didn't find a device.");
-      return;
-    }
-    if (clientSock) {
-      clientSock.sendMessage("{\"haveDevice\":true}");
-    }
+  },
+  close:function() {
+  },
+  bitlash:function() {
+    // TODO:  Support timeout
     getPorts(function(conn) {
       if (!conn) {
         console.error("Can't find the pinoccio");
@@ -176,7 +123,8 @@ chrome.app.runtime.onLaunched.addListener(function(data) {
         clientSock.addDataReceivedListener(function(data) {
           conn.waitForPrompt("\n> ", function() {
             console.log("Going to run %s", data.trim());
-            conn.unechoWrite(data.trim() + "\n", function() {
+            conn.unechoWrite(msg.command.trim() + "\n", function() {
+              // TODO Make this multiline aware
               conn.readLine(function(line) {
                 console.log("Result line is: ", line);
                 clientSock.sendMessage(line, function() {
@@ -189,6 +137,33 @@ chrome.app.runtime.onLaunched.addListener(function(data) {
         });
       }
     });
+  }
+};
+
+if (!cmds.hasOwnProperty(msg.op)) {
+  return responder({error:"Unknown op"});
+}
+
+cmds[msg.op]();
+});
+
+chrome.app.runtime.onLaunched.addListener(function(data) {
+  console.log("We launched");
+
+  var a = document.createElement('a');
+  a.href = "http://pinocc.io";
+  a.target='_blank';
+  a.click();
+  /*
+  pinoccio.checkForDevice(2000, function(err, foundIt) {
+    if (!foundIt) {
+      console.error("We got called back, but didn't find a device.");
+      return;
+    }
+    if (clientSock) {
+      clientSock.sendMessage("{\"haveDevice\":true}");
+    }
   });
+  */
 });
 

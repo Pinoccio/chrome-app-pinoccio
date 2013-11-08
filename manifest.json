@@ -23,5 +23,8 @@
         }
       ]
     }
-  ]
+  ],
+  "externally_connectable": {
+    "matches": ["*://*.pinocc.io/*"]
+  }
 }

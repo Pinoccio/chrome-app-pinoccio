@@ -77,7 +77,6 @@ chrome.runtime.onStartup.addListener(function(details) {
 chrome.runtime.onInstalled.addListener(function(details) {
   console.log("Installed", details);
   // XXX: Start the TCP server?
-
 });
 
 chrome.runtime.onSuspend.addListener(function() {

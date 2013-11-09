@@ -144,6 +144,8 @@ if (!cmds.hasOwnProperty(msg.op)) {
 }
 
 cmds[msg.op]();
+
+return true; // required if we want to respond after the listener
 });
 
 chrome.app.runtime.onLaunched.addListener(function(data) {

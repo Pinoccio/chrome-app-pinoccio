@@ -25,6 +25,6 @@
     }
   ],
   "externally_connectable": {
-    "matches": ["*://*.pinocc.io/*"]
+    "matches": ["*://*.pinocc.io/*", "*://localhost/*"]
   }
 }

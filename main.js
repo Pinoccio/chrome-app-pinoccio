@@ -152,7 +152,7 @@ chrome.app.runtime.onLaunched.addListener(function(data) {
   console.log("We launched");
 
   var a = document.createElement('a');
-  a.href = "http://pinocc.io";
+  a.href = "http://hq.pinocc.io";
   a.target='_blank';
   a.click();
   /*

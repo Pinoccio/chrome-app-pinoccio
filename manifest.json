@@ -3,7 +3,7 @@
 
   "name": "Pinoccio Dev",
   "description": "Setup and connect to your Pinoccio devices.",
-  "version": "1.1",
+  "version": "1.1.1",
 
   "app":{
     "background":{
@@ -28,7 +28,7 @@
     "matches": ["*://*.pinocc.io/*", "*://localhost/*"]
   },
   "icons": {
-    "16": "icon@16.png",
-    "128": "icon@128.png"
+    "16": "icon-dev@16.png",
+    "128": "icon-dev@128.png"
   }
 }

@@ -118,23 +118,19 @@ var cmds = {
         return;
       }
 
-      if (clientSock) {
-        clientSock.addDataReceivedListener(function(data) {
-          conn.waitForPrompt("\n> ", function() {
-            console.log("Going to run %s", data.trim());
-            conn.unechoWrite(msg.command.trim() + "\n", function() {
-              // TODO Make this multiline aware
-              conn.readLine(function(line) {
-                console.log("Result line is: ", line);
-                clientSock.sendMessage(line, function() {
-                  console.log("We sent it");
-                  tcpServer.disconnect();
-                });
-              });
+      conn.waitForPrompt("\n> ", function() {
+        console.log("Going to run %s", data.trim());
+        conn.unechoWrite(msg.command.trim() + "\n", function() {
+          // TODO Make this multiline aware
+          conn.readLine(function(line) {
+            console.log("Result line is: ", line);
+            clientSock.sendMessage(line, function() {
+              console.log("We sent it");
+              tcpServer.disconnect();
             });
           });
         });
-      }
+      });
     });
   }
 };

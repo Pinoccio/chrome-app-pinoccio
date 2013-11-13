@@ -1,7 +1,6 @@
 var DEBUG_MODE = false;
 var timeout = 100;
 var clientSock;
-var tcpServer;
 
 var myLog = Function.prototype.bind.call(console.log, console);
 function debugLog() {
@@ -80,7 +79,6 @@ chrome.runtime.onInstalled.addListener(function(details) {
 });
 
 chrome.runtime.onSuspend.addListener(function() {
-  //tcpServer.disconnect();
   chrome.storage.local.set({lastUsedSocket:null});
 });
 
@@ -119,15 +117,12 @@ var cmds = {
       }
 
       conn.waitForPrompt("\n> ", function() {
-        console.log("Going to run %s", data.trim());
+        console.log("Going to run %s", msg.command.trim());
         conn.unechoWrite(msg.command.trim() + "\n", function() {
           // TODO Make this multiline aware
           conn.readLine(function(line) {
             console.log("Result line is: ", line);
-            clientSock.sendMessage(line, function() {
-              console.log("We sent it");
-              tcpServer.disconnect();
-            });
+            responder(line);
           });
         });
       });
@@ -151,16 +146,5 @@ chrome.app.runtime.onLaunched.addListener(function(data) {
   a.href = "http://hq.pinocc.io";
   a.target='_blank';
   a.click();
-  /*
-  pinoccio.checkForDevice(2000, function(err, foundIt) {
-    if (!foundIt) {
-      console.error("We got called back, but didn't find a device.");
-      return;
-    }
-    if (clientSock) {
-      clientSock.sendMessage("{\"haveDevice\":true}");
-    }
-  });
-  */
 });
 

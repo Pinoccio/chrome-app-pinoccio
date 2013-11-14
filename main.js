@@ -21,10 +21,10 @@ function tryPinoccioSerial(port, cbDone) {
         conn.unechoWrite("\n", function() {
           conn.waitForPrompt("\n> ", function() {
             console.log("Skipping: ", conn.ab2str(readInfo.data));
-            conn.unechoWrite("print pinoccio.version\n", function(writeInfo) {
+            conn.unechoWrite("scout.report\n", function(writeInfo) {
               conn.readLine(function(readData) {
                 console.log("Read -%s-", readData);
-                if (readData.trim() == "256") {
+                if (readData.trim() == "1.0") {
                   console.log("Found it");
                   cbDone(conn);
                 } else {

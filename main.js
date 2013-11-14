@@ -122,7 +122,7 @@ var cmds = {
           // TODO Make this multiline aware
           conn.readLine(function(line) {
             console.log("Result line is: ", line);
-            responder(line);
+            responder({result: line});
           });
         });
       });

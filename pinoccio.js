@@ -303,7 +303,8 @@ function trySerial(port, cbDone) {
       });
     },
     function(cbStep) {
-      conn.readUntilPrompt("\n>", function(readData) {
+      conn.readUntilPrompt("\n>", function(err, readData) {
+        if (err) return cbStep(err);
         console.log("Read -%s-", readData);
         if (readData.trim() == "1.0") {
           console.log("Found it");

@@ -48,7 +48,15 @@ var cmds = {
         found:foundIt === true ? true : false
       };
       if (err) resp.error = err;
-      responder(resp);
+      pinoccio.findSerial(function(err, device) {
+        if (!err && device) {
+          resp.isOn = true;
+          resp.version = "1.0"; // We assume this for now until pinoccio.js allos other versions
+        } else {
+          resp.isOn = false;
+        }
+        responder(resp);
+      });
     });
   },
   close:function() {
@@ -72,9 +80,15 @@ var cmds = {
         console.log("Going to run %s", msg.command.trim());
         conn.unechoWrite(msg.command.trim() + "\n", function() {
           // TODO Make this multiline aware
-          conn.readUntilPrompt("\n>", function(data) {
-            console.log("Result line is: ", data);
-            responder({result: data});
+          conn.readUntilPrompt("\n>", function(err, data) {
+            var resp = {};
+            if (err) {
+              resp.error = err;
+            } else {
+              resp.result = data;
+            }
+            console.log("Result line is: ", resp);
+            responder(resp);
           });
         });
     });

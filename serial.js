@@ -64,17 +64,25 @@
     var self = this;
     var readBuffer = "";
 
+    var emptyReadCount = 0;
     function handleRead(readInfo) {
       //console.log(readInfo);
       if (readInfo && readInfo.data) {
-        readBuffer += self.ab2str(readInfo.data);
+        if (readInfo.bytesRead > 0) {
+          emptyReadCount = 0;
+          readBuffer += self.ab2str(readInfo.data);
+        } else {
+          if (++emptyReadCount > 20) {
+            return callback("Could not read");
+          }
+        }
       } else {
         console.log(readBuffer);
         return;
       }
       var tailPos = readBuffer.length - prompt.length - 1;
       if (readBuffer.substring(tailPos, tailPos + prompt.length) == prompt) {
-        return callback(readBuffer.substring(0, tailPos));
+        return callback(null, readBuffer.substring(0, tailPos));
       }
       return self.read(handleRead);
     }

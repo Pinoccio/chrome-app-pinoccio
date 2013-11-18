@@ -60,6 +60,27 @@
     }, 1000);
   }
 
+  SerialConnection.prototype.readUntilPrompt = function(prompt, callback) {
+    var self = this;
+    var readBuffer = "";
+
+    function handleRead(readInfo) {
+      //console.log(readInfo);
+      if (readInfo && readInfo.data) {
+        readBuffer += self.ab2str(readInfo.data);
+      } else {
+        console.log(readBuffer);
+        return;
+      }
+      var tailPos = readBuffer.length - prompt.length - 1;
+      if (readBuffer.substring(tailPos, tailPos + prompt.length) == prompt) {
+        return callback(readBuffer.substring(0, tailPos));
+      }
+      return self.read(handleRead);
+    }
+    this.read(handleRead);
+  };
+
   SerialConnection.prototype.readUntil = function(marker, callback) {
     var self = this;
     // Only works for open serial ports.

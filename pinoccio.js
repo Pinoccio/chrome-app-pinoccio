@@ -217,7 +217,7 @@ function checkForDevice(timeout, onFound) {
   var curTimer;
   chrome.usb.findDevices({"vendorId": VENDOR_ID, "productId": PRODUCT_ID}, function(devices) {
     if (devices && devices.length > 0) {
-      console.log("FOUND IT");
+      console.log("our USB is plugged in");
       foundWrapper(null, true);
     } else {
       if (!foundTriggered) {
@@ -230,9 +230,99 @@ function checkForDevice(timeout, onFound) {
   });
 }
 
+var connectedDevice = undefined;
+function findSerial(cbDone) {
+  // If we're already connecte just short circuit
+  if (connectedDevice) {
+    console.log("Using already connected device.");
+    return cbDone(null, connectedDevice);
+  }
+
+  var usbttyRE = /tty\.usb/g;
+  var port;
+  chrome.serial.getPorts(function(ports) {
+    async.detect(ports, function(portName, cbStep) {
+      console.log("Trying ", portName);
+      if (usbttyRE.test(portName)) {
+        trySerial(portName, function(conn) {
+          if (!conn) return cbStep(false);
+          console.log("This is the one: ", portName);
+          port = portName;
+          connectedDevice = new Device;
+          connectedDevice.conn = conn;
+          cbStep(true);
+        });
+      } else {
+        cbStep(false);
+      }
+    }, function(result) {
+      if (!result) return cbDone("Could not find the device");
+
+      return cbDone(null, connectedDevice);
+    });
+  });
+}
+
+function trySerial(port, cbDone) {
+  var conn = new SerialConnection();
+  var foundIt = false;
+  async.series([
+    function(cbStep) {
+      //console.log("Connecting");
+      conn.connect(port, cbStep);
+    },
+    function(cbStep) {
+      //console.log("Timeout");
+      setTimeout(cbStep, 500);
+    },
+    function(cbStep) {
+      //console.log("Flushing");
+      conn.flush(function() {
+        conn.read(300, function(readInfo) {
+          conn.flush(function() {
+            cbStep();
+          });
+        });
+      });
+    },
+    /*
+    function(cbStep) {
+      conn.unechoWrite("\n", function() {
+        cbStep();
+      });
+    },
+    function(cbStep) {
+      conn.waitForPrompt("\n> ", function() {
+        cbStep();
+      });
+    },
+    */
+    function(cbStep) {
+      conn.unechoWrite("scout.report\n", function(writeInfo) {
+        cbStep();
+      });
+    },
+    function(cbStep) {
+      conn.readUntilPrompt("\n>", function(readData) {
+        console.log("Read -%s-", readData);
+        if (readData.trim() == "1.0") {
+          console.log("Found it");
+          foundIt = true;
+        }
+          cbStep();
+      });
+    }],
+
+    function(err) {
+      cbDone(foundIt ? conn : undefined);
+    }
+  );
+}
+
 window.pinoccio = {
   Device:Device,
-  checkForDevice:checkForDevice
+  checkForDevice:checkForDevice,
+  findSerial:findSerial
 };
 
 })(window);

@@ -1,0 +1,30 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+<title>Pinoccio Test</title>
+</head>
+<p>Just testing stuff...</p>
+<script type="text/javascript" charset="utf-8">
+  chrome.runtime.sendMessage("fpckogdankcflblgegkomkhmklkakbmd", 
+    {op:"detect", timeout:10000}, 
+    function(response) {
+      console.log("Got response", response);
+      if (response.found === true) {
+      chrome.runtime.sendMessage("fpckogdankcflblgegkomkhmklkakbmd",
+        {op:"bitlash", command:"pinoccio.test"},
+        function(response) {
+          console.log("Respone: ", response);
+            chrome.runtime.sendMessage("fpckogdankcflblgegkomkhmklkakbmd",
+              {op:"bitlash", command:"pinoccio.test"},
+              function(response) {
+                console.log("Respone: ", response);
+              }
+            );
+        }
+      );
+      }
+    }
+  );
+</script>
+</html>

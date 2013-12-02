@@ -1,6 +1,8 @@
-var serial = chrome.serial;
 var VENDOR_ID = 0x1d50;
 var PRODUCT_ID = 0x6051;
+
+// Program writing constants
+var pageSize = 256;
 
 (function() {
 
@@ -123,12 +125,15 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
       if (readInfo.bytesRead > 0) {
         var curByte = (new Uint8Array(readInfo.data))[0];
         debugLog("Read: state(%s) byte(%d) char(%s)", cmdReadStates[state], curByte, String.fromCharCode(curByte));
+      } else {
+        debugLog("There was no data yet, waiting for some");
+        return setTimeout(cbStep, 10);
       }
       pkt.checksum ^= curByte;
       switch(state) {
       case 0:
         if (curByte != 0x1b) {
-          return cbStep("Invalid header byte");
+          return cbStep("Invalid header byte expected 0x1b got " + curByte)
         }
         ++state;
         break;
@@ -175,13 +180,167 @@ Device.prototype.signOn = function(cbDone) {
   self.restart(function() {
     self.drain(function() {
       self.sendBootloadCommand([0x01], function(err, pkt) {
-        console.log("Err", err);
-        console.log("Packet: ", pkt);
+        //console.log("Err", err);
+        //console.log("Packet: ", pkt);
         cbDone();
       });
     });
   });
 }
+// Save the given progrma to the chip
+// The programData should be in intel hex format
+Device.prototype.saveProgram = function(programData, cbDone) {
+  // Convert the programData into binary
+  var binaryData = [];
+  var curPos = 0;
+  var validProgram = false;
+  programData.split("\n").forEach(function(programLine) {
+    if (validProgram) return;
+    if (programLine[0] != ":") {
+      throw new Error("Invalid program, data format incorrect");
+    }
+
+    // If it's the end we're good
+    if (programLine == ":00000001FF") {
+      validProgram = true;
+      return;
+    }
+
+    // Break apart the line
+    var linePos = parseInt(programLine.substring(3, 7), 16);
+    if (linePos != curPos) {
+      console.error("Got %d expected %d", linePos, curPos);
+      throw new Error("Invalid program, out of order.");
+    }
+    var lineLength = parseInt(programLine.substring(1, 3), 16);
+    // Parse the data
+    for (var i = 9; i < 9 + (lineLength * 2); i += 2) {
+      binaryData.push(parseInt(programLine.substring(i, i+2), 16));
+    }
+
+    curPos += lineLength;
+  });
+
+  if (!validProgram) {
+    throw new Error("The program is invalid, did not parse");
+  }
+  // var bytes = String.fromCharCode.apply(String, binaryData);
+  console.log("Parsed %d bytes", binaryData.length);
+
+  var self = this;
+  async.series([
+    function(cbStep) {
+      setTimeout(cbStep, 1000);
+    },
+    function(cbStep) {
+      self.signOn(cbStep);
+    },
+    function(cbStep) {
+      // Enter programming mode
+      self.sendBootloadCommand([0x10, 0xc8, 0x64, 0x19, 0x20, 0x00, 0x53, 0x03, 0xac, 0x53, 0x00, 0x00], function(err, resp) {
+        cbStep();
+      });
+    },
+    /*
+    function(cbStep) {
+      self.readBootloadCommand(5000, function(err, pkt) {
+        console.log("Entering programming mode", pkt);
+        cbStep();
+      });
+    },
+    */
+    // Set the program address, it should autoincrement for us
+    function(cbStep) {
+      //var useaddr = pageaddr >> 1;
+      var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
+      /*
+      cmdBuf[3] = useaddr >> 8;
+      cmdBuf[4] = useaddr & 0xff;
+      console.log(cmdBuf);
+      */
+      self.sendBootloadCommand(cmdBuf, function() {
+        cbStep();
+      });
+    },
+    /*
+    function(cbStep) {
+      self.readBootloadCommand(5000, function(err, pkt) {
+        console.log("Load address ", pkt);
+        cbStep();
+      });
+    },
+    */
+    // Actually do the paged write
+    function(cbStep) {
+      self.pagedWrite(binaryData, cbStep);
+    },
+    function(cbStep) {
+      console.log("Exiting the programmer");
+      // Exit programming mode
+      self.sendBootloadCommand([0x11, 0x01, 0x01], function() {
+        cbStep();
+      });
+    },
+    /*
+    function(cbStep) {
+      self.readBootloadCommand(5000, function(err, pkt) {
+        console.log("Signed out of the programmer", pkt);
+        cbStep();
+      });
+    },
+    */
+    function(cbStep) {
+      setTimeout(function() {
+        self.conn.close(function() {
+          connectedDevice = null;
+          cbStep();
+        });
+      }, 1000);
+    }
+  ], function(err) {
+    cbDone(err);
+  });
+}
+
+Device.prototype.pagedWrite = function(bytes, cbDone) {
+  var self = this;
+  var pageaddr = 0;
+
+  async.whilst(
+    function() { return pageaddr < bytes.length; },
+    function(cbWhileStep) {
+      async.series([
+        function(cbStep) {
+          // Write the page
+          var writeBytes = bytes.slice(pageaddr, (bytes.length > pageSize ? (pageaddr + pageSize) : bytes.length - 1));
+          var cmdBuf = [0x13, 0x00, 0x00, 0xc1, 0x0a, 0x40, 0x4c, 0x20, 0x00, 0x00];
+          cmdBuf[1] = bytes.length >> 8; 
+          cmdBuf[2] = bytes.length & 0xff;
+          self.sendBootloadCommand(cmdBuf.concat(writeBytes), function() {
+            pageaddr += writeBytes.length;
+            cbStep();
+          });
+        },
+        /*
+        function(cbStep) {
+          // Read the result
+          self.readBootloadCommand(5000, function(err, pkt) {
+            console.log("Wrote page at %d", pageaddr);
+            console.log("Write page ", pkt);
+            cbStep();
+          });
+        }
+        */
+      ], function(err) {
+        cbWhileStep(err);
+      });
+    },
+    function(err) {
+      cbDone(err);
+    }
+  );
+}
+
 /* TODO:  The chip doesn't like how avrdude does this so we're still researching
 Device.prototype.erase = function(cbDone) {
   self.sendBootloadCommand([], function(err, pkt) {

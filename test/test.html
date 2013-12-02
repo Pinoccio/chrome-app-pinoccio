@@ -7,9 +7,10 @@
 <p>Just testing stuff...</p>
 <script type="text/javascript" charset="utf-8">
   chrome.runtime.sendMessage("fpckogdankcflblgegkomkhmklkakbmd", 
-    {op:"detect", timeout:10000}, 
+    {op:"program", timeout:10000}, 
     function(response) {
-      console.log("Got response", response);
+      console.log("Got program response", response);
+      /*
       if (response.found === true) {
       chrome.runtime.sendMessage("fpckogdankcflblgegkomkhmklkakbmd",
         {op:"bitlash", command:"pinoccio.test"},
@@ -24,6 +25,7 @@
         }
       );
       }
+      */
     }
   );
 </script>

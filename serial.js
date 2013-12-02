@@ -1,3 +1,5 @@
+var serial = chrome.serial;
+
 (function(exports) {
   function SerialConnection() {
     this.connectionId = -1;
@@ -151,6 +153,10 @@
         callback();
       });
     });
+  }
+
+  SerialConnection.prototype.close = function(callback) {
+    serial.close(this.connectionId, callback);
   }
 
   SerialConnection.prototype.flushedWrite = function(msg, callback) {

@@ -258,6 +258,17 @@ Device.prototype.saveProgram = function(programData, cbDone) {
       });
     },
     */
+    // Set the program address
+    function(cbStep) {
+      //var useaddr = pageaddr >> 1;
+      var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
+      //cmdBuf[3] = useaddr >> 8;
+      //cmdBuf[4] = useaddr & 0xff;
+      //console.log(cmdBuf);
+      self.sendBootloadCommand(cmdBuf, function() {
+        cbStep();
+      });
+    },
     // Actually do the paged write
     function(cbStep) {
       self.pagedWrite(binaryData, cbStep);
@@ -298,27 +309,12 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
     function() { return pageaddr < bytes.length; },
     function(cbWhileStep) {
       async.series([
-        // Set the program address
-        function(cbStep) {
-          var useaddr = pageaddr >> 1;
-          var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
-          cmdBuf[3] = useaddr >> 8;
-          cmdBuf[4] = useaddr & 0xff;
-          console.log(cmdBuf);
-          self.sendBootloadCommand(cmdBuf, function() {
-            cbStep();
-          });
-        },
         function(cbStep) {
           // Write the page
           var writeBytes = bytes.slice(pageaddr, (bytes.length > pageSize ? (pageaddr + pageSize) : bytes.length - 1));
           var cmdBuf = [0x13, 0x00, 0x00, 0xc1, 0x0a, 0x40, 0x4c, 0x20, 0x00, 0x00];
           cmdBuf[1] = bytes.length >> 8; 
           cmdBuf[2] = bytes.length & 0xff;
-          if ((pageaddr + bytes.length) > 0x1F000) {
-            console.log("Trying to write past our valid space, bailing");
-            return cbStep(new Error("Trying to write into boot loader"));
-          }
           self.sendBootloadCommand(cmdBuf.concat(writeBytes), function() {
             console.log("Wrote page at %d", pageaddr);
             pageaddr += writeBytes.length;

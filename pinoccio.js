@@ -140,7 +140,7 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
         break;
       case 1:
         if (curByte != self.blSeq - 1) {
-          return cbStep("Invalid sequence number");
+          return cbStep("Invalid sequence number: " + curByte + " -- expecting: " + self.blSeq);
         }
         ++state;
         break;
@@ -172,6 +172,7 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
       cbStep();
     });
   }, function(err) {
+    console.log("Packet: " + pkt);
     cbDone(err, pkt);
   })
 };
@@ -315,10 +316,12 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
           var cmdBuf = [0x13, 0x00, 0x00, 0xc1, 0x0a, 0x40, 0x4c, 0x20, 0x00, 0x00];
           cmdBuf[1] = bytes.length >> 8; 
           cmdBuf[2] = bytes.length & 0xff;
-          self.sendBootloadCommand(cmdBuf.concat(writeBytes), function() {
+          self.sendBootloadCommand(cmdBuf.concat(writeBytes), function(err, response) {
             console.log("Wrote page at %d", pageaddr);
+            console.log("Error: ", err);
+            console.log("Response: ", response);
             pageaddr += writeBytes.length;
-            cbStep();
+            cbStep(err);
           });
         },
         /*
@@ -427,7 +430,7 @@ function trySerial(port, cbDone) {
     },
     function(cbStep) {
       //console.log("Timeout");
-      setTimeout(cbStep, 2000);
+      setTimeout(cbStep, 5000);
     },
     function(cbStep) {
       setTimeout(cbStep, 0);
@@ -462,8 +465,8 @@ function trySerial(port, cbDone) {
     function(cbStep) {
       conn.readUntilPrompt("\n>", function(err, readData) {
         if (err) return cbStep(err);
-        console.log("Read -%s-", readData);
-        if (readData.trim() == "1.0") {
+        console.log("Read: %s", readData);
+        if ((readData.split('\n')[0]).trim() == "-- Scout Information --") {
           console.log("Found it");
           foundIt = true;
         }

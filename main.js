@@ -1,4 +1,4 @@
-var DEBUG_MODE = false;
+var DEBUG_MODE = true;
 var timeout = 100;
 var clientSock;
 

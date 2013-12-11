@@ -140,6 +140,7 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
         break;
       case 1:
         if (curByte != self.blSeq - 1) {
+          console.log("Invalid sequence number: " + curByte + " expecting: " + (self.blSeq - 1));
           return cbStep("Invalid sequence number: " + curByte + " -- expecting: " + self.blSeq);
         }
         ++state;
@@ -425,18 +426,18 @@ function trySerial(port, cbDone) {
   var foundIt = false;
   async.series([
     function(cbStep) {
-      //console.log("Connecting");
+      console.log("Connecting");
       conn.connect(port, cbStep);
     },
     function(cbStep) {
-      //console.log("Timeout");
+      console.log("Timeout");
       setTimeout(cbStep, 5000);
     },
     function(cbStep) {
       setTimeout(cbStep, 0);
     },
     function(cbStep) {
-      //console.log("Flushing");
+      console.log("Flushing");
       conn.flush(function() {
         conn.read(1000, function(readInfo) {
           conn.flush(function() {
@@ -458,15 +459,18 @@ function trySerial(port, cbDone) {
     },
     */
     function(cbStep) {
+      console.log("Get report");
       conn.unechoWrite("scout.report\n", function(writeInfo) {
         cbStep();
       });
     },
     function(cbStep) {
       conn.readUntilPrompt("\n>", function(err, readData) {
+        console.log(err);
         if (err) return cbStep(err);
         console.log("Read: %s", readData);
-        if ((readData.split('\n')[0]).trim() == "-- Scout Information --") {
+        console.log(readData.trim().split('\n')[0].trim());
+        if ((readData.trim().split('\n')[0]).trim() == "-- Scout Information --") {
           console.log("Found it");
           foundIt = true;
         }

@@ -260,17 +260,6 @@ Device.prototype.saveProgram = function(programData, cbDone) {
       });
     },
     */
-    // Set the program address
-    function(cbStep) {
-      //var useaddr = pageaddr >> 1;
-      var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
-      //cmdBuf[3] = useaddr >> 8;
-      //cmdBuf[4] = useaddr & 0xff;
-      //console.log(cmdBuf);
-      self.sendBootloadCommand(cmdBuf, function() {
-        cbStep();
-      });
-    },
     // Actually do the paged write
     function(cbStep) {
       self.pagedWrite(binaryData, cbStep);
@@ -311,6 +300,16 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
     function() { return pageaddr < bytes.length; },
     function(cbWhileStep) {
       async.series([
+        // Set the program address
+        function(cbStep) {
+          var useaddr = pageaddr >> 1;
+          var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
+          cmdBuf[3] = useaddr >> 8;
+          cmdBuf[4] = useaddr & 0xff;
+          self.sendBootloadCommand(cmdBuf, function() {
+            cbStep();
+          });
+        },
         function(cbStep) {
           // Write the page
           var writeBytes = bytes.slice(pageaddr, (bytes.length > pageSize ? (pageaddr + pageSize) : bytes.length - 1));

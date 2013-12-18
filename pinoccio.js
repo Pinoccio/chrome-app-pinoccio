@@ -139,7 +139,9 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
         ++state;
         break;
       case 1:
-        if (curByte != self.blSeq - 1) {
+        var prevSeq = self.blSeq - 1;
+        if (prevSeq == -1) prevSeq = 255;
+        if (curByte != prevSeq) {
           return cbStep("Invalid sequence number");
         }
         ++state;
@@ -181,8 +183,8 @@ Device.prototype.signOn = function(cbDone) {
   self.restart(function() {
     self.drain(function() {
       self.sendBootloadCommand([0x01], function(err, pkt) {
-        //console.log("Err", err);
-        //console.log("Packet: ", pkt);
+        console.log("Err", err);
+        console.log("Packet: ", pkt);
         cbDone();
       });
     });
@@ -239,6 +241,7 @@ Device.prototype.saveProgram = function(programData, cbDone) {
     function(cbStep) {
       // Enter programming mode
       self.sendBootloadCommand([0x10, 0xc8, 0x64, 0x19, 0x20, 0x00, 0x53, 0x03, 0xac, 0x53, 0x00, 0x00], function(err, resp) {
+        console.log(resp);
         cbStep();
       });
     },
@@ -304,7 +307,6 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
           var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
           cmdBuf[3] = useaddr >> 8;
           cmdBuf[4] = useaddr & 0xff;
-          console.log(cmdBuf);
           self.sendBootloadCommand(cmdBuf, function() {
             cbStep();
           });
@@ -313,16 +315,17 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
           // Write the page
           var writeBytes = bytes.slice(pageaddr, (bytes.length > pageSize ? (pageaddr + pageSize) : bytes.length - 1));
           var cmdBuf = [0x13, 0x00, 0x00, 0xc1, 0x0a, 0x40, 0x4c, 0x20, 0x00, 0x00];
-          cmdBuf[1] = bytes.length >> 8; 
-          cmdBuf[2] = bytes.length & 0xff;
-          if ((pageaddr + bytes.length) > 0x1F000) {
+          cmdBuf[1] = writeBytes.length >> 8; 
+          cmdBuf[2] = writeBytes.length & 0xff;
+          if ((pageaddr + writeBytes.length) > 0xEF000) {
             console.log("Trying to write past our valid space, bailing");
             return cbStep(new Error("Trying to write into boot loader"));
           }
-          self.sendBootloadCommand(cmdBuf.concat(writeBytes), function() {
-            console.log("Wrote page at %d", pageaddr);
+          //console.log(cmdBuf.concat(writeBytes));
+          self.sendBootloadCommand(cmdBuf.concat(writeBytes), function(err, resp) {
+            if (err) return cbStep(err);
             pageaddr += writeBytes.length;
-            cbStep();
+            setTimeout(cbStep, 4);
           });
         },
         /*
@@ -440,6 +443,7 @@ function trySerial(port, cbDone) {
       //console.log("Flushing");
       conn.flush(function() {
         conn.read(1000, function(readInfo) {
+          console.log(readInfo);
           conn.flush(function() {
             cbStep();
           });
@@ -467,7 +471,7 @@ function trySerial(port, cbDone) {
       conn.readUntilPrompt("\n>", function(err, readData) {
         if (err) return cbStep(err);
         console.log("Read -%s-", readData);
-        if (readData.trim() == "1.0") {
+        if ((readData.trim().split('\n')[0]).trim() == "-- Scout Information --") {
           console.log("Found it");
           foundIt = true;
         }

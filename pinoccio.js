@@ -381,17 +381,28 @@ function checkForDevice(timeout, onFound) {
       console.log("our USB is plugged in");
       foundWrapper(null, true);
     } else {
-      if (!foundTriggered) {
-        curTimer = setTimeout(function() {
-          curTimer = undefined;
-          checkForDevice(0, foundWrapper);
-        }, 500);
-      }
+      // if (!foundTriggered) {
+      //   curTimer = setTimeout(function() {
+      //     curTimer = undefined;
+      //     checkForDevice(0, foundWrapper);
+      //   }, 500);
+      // }
+
+      // We didn't find it, let HQ tell us when to detect again
+      console.log("did not find our USB device");
+      foundWrapper(null, false);
     }
   });
 }
 
 var connectedDevice = undefined;
+
+function forgetDevice(cbDone) {
+  connectedDevice = null;
+  console.log("Forgetting connected device.");
+  return cbDone(null, true);
+}
+
 function findSerial(cbDone) {
   // If we're already connecte just short circuit
   if (connectedDevice) {

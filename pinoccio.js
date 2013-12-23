@@ -315,7 +315,7 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
           // Write the page
           var writeBytes = bytes.slice(pageaddr, (bytes.length > pageSize ? (pageaddr + pageSize) : bytes.length - 1));
           var cmdBuf = [0x13, 0x00, 0x00, 0xc1, 0x0a, 0x40, 0x4c, 0x20, 0x00, 0x00];
-          cmdBuf[1] = writeBytes.length >> 8; 
+          cmdBuf[1] = writeBytes.length >> 8;
           cmdBuf[2] = writeBytes.length & 0xff;
           if ((pageaddr + writeBytes.length) > 0xEF000) {
             console.log("Trying to write past our valid space, bailing");

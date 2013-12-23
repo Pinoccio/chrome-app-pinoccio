@@ -75,6 +75,16 @@ var cmds = {
       });
     });
   },
+  forget:function() {
+    pinoccio.forgetDevice(function(err){
+      var resp = {};
+      if (err) {
+        console.error(err);
+        res.error = err;
+      }
+      responder(resp);
+    });
+  },
   close:function() {
   },
   bitlash:function() {

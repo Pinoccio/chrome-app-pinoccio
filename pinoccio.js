@@ -499,7 +499,8 @@ function trySerial(port, cbDone) {
 window.pinoccio = {
   Device:Device,
   checkForDevice:checkForDevice,
-  findSerial:findSerial
+  findSerial:findSerial,
+  forgetDevice:forgetDevice
 };
 
 })(window);

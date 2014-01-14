@@ -474,6 +474,7 @@ function trySerial(port, cbDone) {
     },
     */
     function(cbStep) {
+      console.log("running scout.report");
       conn.unechoWrite("scout.report\n", function(writeInfo) {
         cbStep();
       });
@@ -482,7 +483,8 @@ function trySerial(port, cbDone) {
       conn.readUntilPrompt("\n>", function(err, readData) {
         if (err) return cbStep(err);
         console.log("Read -%s-", readData);
-        if ((readData.trim().split('\n')[0]).trim() == "-- Scout Information --") {
+        readData = JSON.parse(readData);
+        if (readData.hasOwnProperty('e') && readData.hasOwnProperty('hwv')) {
           console.log("Found it");
           foundIt = true;
         }

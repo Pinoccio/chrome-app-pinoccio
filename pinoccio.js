@@ -14,7 +14,7 @@ function Device() {
 Device.prototype.connect = function(port, cbDone) {
   if (this.conn) setTimeout(cbDone, 0);
 
-  this.conn = new SerialConnection();
+  this.conn = new PinoccioSerial.SerialConnection();
   this.conn.connect(port, function(err) {
     cbDone(err);
   });
@@ -404,6 +404,7 @@ function forgetDevice(cbDone) {
 }
 
 function findSerial(cbDone) {
+  console.log("findSerial");
   // If we're already connecte just short circuit
   if (connectedDevice) {
     console.log("Using already connected device.");
@@ -412,6 +413,30 @@ function findSerial(cbDone) {
 
   var usbttyRE = /tty\.usb/g;
   var port;
+  console.log("Going to close all");
+  PinoccioSerial.closeAll(function() {
+    PinoccioSerial.getDevices(function(devices) {
+      async.detect(devices, function(device, cbStep) {
+        console.log("Check ", device);
+        if (usbttyRE.test(device.path)) {
+          console.log("Actually trying ", device);
+          trySerial(device.path, function(conn) {
+            if (!conn) return cbStep(false);
+            console.log("This is the one: ", device.path);
+            port = device.path;
+            connectedDevice = new Device;
+            connectedDevice.conn = conn;
+            cbStep(true);
+          });
+        } else {
+          setTimeout(function() { cbStep(false); }, 0);
+        }
+      }, function(result) {
+        return cbDone(null, connectedDevice);
+      })
+    });
+  });
+  /*
   chrome.serial.getPorts(function(ports) {
     async.detect(ports, function(portName, cbStep) {
       console.log("Trying ", portName);
@@ -433,34 +458,38 @@ function findSerial(cbDone) {
       return cbDone(null, connectedDevice);
     });
   });
+  */
 }
 
 function trySerial(port, cbDone) {
-  var conn = new SerialConnection();
+  var conn = new PinoccioSerial.SerialConnection();
   var foundIt = false;
   async.series([
     function(cbStep) {
-      //console.log("Connecting");
+      console.log("Connecting");
       conn.connect(port, cbStep);
     },
     function(cbStep) {
-      //console.log("Timeout");
-      setTimeout(cbStep, 2000);
+      console.log("Timeout");
+      setTimeout(cbStep, 5000);
     },
     function(cbStep) {
       setTimeout(cbStep, 0);
     },
+    /*
     function(cbStep) {
-      //console.log("Flushing");
-      conn.flush(function() {
-        conn.read(1000, function(readInfo) {
-          console.log(readInfo);
-          conn.flush(function() {
-            cbStep();
+      console.log("Flushing");
+      conn.flush(function(result) {
+        if (!result) {
+          conn.close(function() {
+            cbStep("Could not flush");
           });
-        });
+        } else {
+          cbStep();
+        }
       });
     },
+    */
     /*
     function(cbStep) {
       conn.unechoWrite("\n", function() {
@@ -473,22 +502,24 @@ function trySerial(port, cbDone) {
       });
     },
     */
+    /*
     function(cbStep) {
       console.log("running scout.report");
       conn.unechoWrite("scout.report\n", function(writeInfo) {
         cbStep();
       });
     },
+    */
     function(cbStep) {
-      conn.readUntilPrompt("\n>", function(err, readData) {
+      console.log("Waiting for prompt");
+      conn.readUntilPrompt("> ", function(err, readData) {
         if (err) return cbStep(err);
-        console.log("Read -%s-", readData);
-        readData = JSON.parse(readData);
-        if (readData.hasOwnProperty('e') && readData.hasOwnProperty('hwv')) {
+        //console.log("Read -%s-", readData);
+        if (/Scout ready -/.test(readData)) {
           console.log("Found it");
           foundIt = true;
         }
-          cbStep();
+        cbStep();
       });
     }],
 

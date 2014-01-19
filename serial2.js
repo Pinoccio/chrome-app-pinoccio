@@ -1,10 +1,33 @@
 var serial = chrome.serial;
-var openSerialIDs = [];
+
+var serialConnections = {};
 
 (function(exports) {
-  function saveConnections(cbDone) {
-    chrome.storage.local.set({connections:openSerialIDs}, function() {
-      cbDone();
+
+  function handleRead(readInfo) {
+    var serialConn = serialConnections[readInfo.connectionId];
+    if (!serialConn) {
+      console.error("Blackholed read data", readInfo, serialConnections);
+      return;
+    }
+
+    var bufView = new Uint8Array(readInfo.data);
+    var unis = [];
+    for (var i=0; i<bufView.length; i++) {
+      unis.push(bufView[i]);
+    }
+    var chunk = String.fromCharCode.apply(null, unis);
+    //console.log("chunk ==%s==", chunk);
+    serialConn.readBuffer += chunk;
+    //console.log("Reabuffer :%s:", serialConn.readBuffer);
+
+    //console.log("handleRead ", readInfo, " buffer is now ", serialConn.readBuffer);
+  };
+
+  if (serial.onReceive) serial.onReceive.addListener(handleRead);
+  if (serial.onReceiveError) {
+    serial.onReceiveError.addListener(function(errorInfo) {
+      console.error("Receive error ", errorInfo);
     });
   }
 
@@ -12,10 +35,16 @@ var openSerialIDs = [];
     this.connectionId = -1;
     this.callbacks = {};
     this._flushOnWrite = false;
+    this.readBuffer = "";
   }
 
   SerialConnection.prototype.connect = function(device, callback) {
-    serial.open(device, {bitrate:38400}, this.onOpen.bind(this))
+    console.log(serial);
+    var options = {
+      name:"Pinoccio",
+      bitrate:38400
+    };
+    serial.connect(device, options, this.onOpen.bind(this))
     this.callbacks.connect = callback;
   };
 
@@ -28,6 +57,8 @@ var openSerialIDs = [];
   }
 
   SerialConnection.prototype.flush = function(callback) {
+    this.readBuffer = "";
+    console.log("Flushing for ", this.readBuffer);
     this.callbacks.flush = callback;
     serial.flush(this.connectionId, this.onFlush.bind(this));
   }
@@ -35,17 +66,17 @@ var openSerialIDs = [];
   SerialConnection.prototype.readBytes = function(readlen, callback) {
     var retData = "";
     var self = this;
-    function processRead(readInfo) {
-      retData += self.ab2str(readInfo.data);
-      if (readInfo.bytesRead > 0 && readInfo.readlen - retData.length > 0) {
+    function processRead(readData) {
+      retData += readData;
+      if (readData.length > 0 && readlen - retData.length > 0) {
         setTimeout(function() {
-          serial.read(this.connectionId, readlen - retData.length, processRead);
+          self.read(readlen - retData.length, processRead);
         }, 10);
       } else {
         callback(retData);
       }
     }
-    serial.read(this.connectionId, readlen, processRead);
+    this.read(readlen, processRead);
   }
 
   SerialConnection.prototype.read = function(readlen, callback) {
@@ -57,8 +88,18 @@ var openSerialIDs = [];
     if (this.connectionId < 0) {
       throw 'Invalid connection';
     }
+
+    if (this.readBuffer.length == 0) {
+      return this.onRead("");
+    }
+
     this.callbacks.read = callback;
-    serial.read(this.connectionId, readlen, this.onRead.bind(this));
+    var actualReadLen = Math.min(readlen, this.readBuffer.length);
+    //console.log("actualReadLen(%d)", actualReadLen);
+    var readData = this.readBuffer.slice(0, actualReadLen);
+    this.readBuffer = this.readBuffer.slice(actualReadLen);
+    //console.log("Read ", readData);
+    this.onRead(readData);
   };
 
   SerialConnection.prototype.waitForPrompt = function(prompt, callback) {
@@ -76,25 +117,24 @@ var openSerialIDs = [];
     var readBuffer = "";
 
     var emptyReadCount = 0;
-    function handleRead(readInfo) {
+    function handleRead(readData) {
       var readWait = 0;
-      //console.log(readInfo);
-      if (readInfo && readInfo.data) {
-        if (readInfo.bytesRead > 0) {
-          emptyReadCount = 0;
-          readBuffer += self.ab2str(readInfo.data);
-        } else {
-          readWait = 100;
-          if (++emptyReadCount > 200) {
-            return callback("Could not read");
-          }
+      //console.log("Appending ", readData);
+      if (readData.length > 0) {
+        emptyReadCount = 0;
+        readBuffer += readData;
+      } else {
+        readWait = 100;
+        if (++emptyReadCount > 200) {
+          return callback("Could not read");
         }
       }
-      //console.log("Read Buffer", readBuffer);
       var tailPos = readBuffer.length - prompt.length;
-      if (readBuffer.substring(tailPos, tailPos + prompt.length) == prompt) {
+      //console.log("Checking -%s- from =%s=", readBuffer.substring(readBuffer.length, readBuffer.length - prompt.length), readBuffer);
+      if (readBuffer.substring(readBuffer.length, readBuffer.length - prompt.length) == prompt) {
         return callback(null, readBuffer.substring(0, tailPos));
       }
+      //console.log("Buffer is ", readBuffer);
       setTimeout(function() { self.read(handleRead); }, readWait);
     }
     this.read(handleRead);
@@ -109,8 +149,8 @@ var openSerialIDs = [];
     var line = '';
 
     // Keep reading bytes until we've found a newline.
-    var readLineHelper = function(readInfo) {
-      var char = self.ab2str(readInfo.data);
+    var readLineHelper = function(readData) {
+      var char = readData;
       if (char == '') {
         // Nothing in the buffer. Try reading again after a small timeout.
         setTimeout(function() {
@@ -142,13 +182,13 @@ var openSerialIDs = [];
     }
     this.callbacks.write = callback;
     this._stringToArrayBuffer(msg, function(array) {
-      serial.write(this.connectionId, array, this.onWrite.bind(this));
+      serial.send(this.connectionId, array, this.onWrite.bind(this));
     }.bind(this));
   };
 
   SerialConnection.prototype.writeRaw = function(msg, callback) {
     this.callbacks.write = callback;
-    serial.write(this.connectionId, msg, this.onWrite.bind(this));
+    serial.send(this.connectionId, msg, this.onWrite.bind(this));
   }
 
   SerialConnection.prototype.unechoWrite = function(msg, callback) {
@@ -165,7 +205,7 @@ var openSerialIDs = [];
   }
 
   SerialConnection.prototype.close = function(callback) {
-    serial.close(this.connectionId, callback);
+    serial.disconnect(this.connectionId, callback);
   }
 
   SerialConnection.prototype.flushedWrite = function(msg, callback) {
@@ -174,25 +214,22 @@ var openSerialIDs = [];
   }
 
   SerialConnection.prototype.onOpen = function(connectionInfo) {
-    openSerialIDs.push(connectionInfo.connectionId);
-    saveConnections(function() {});
     this.connectionId = connectionInfo.connectionId;
+    serialConnections[this.connectionId] = this;
     if (this.callbacks.connect) {
       this.callbacks.connect();
     }
   };
 
-  SerialConnection.prototype.onFlush = function() {
-    serial.read(this.connectionId, 4096, function() {
-      if (this.callbacks.flush) {
-        this.callbacks.flush();
-      }
-    }.bind(this));
+  SerialConnection.prototype.onFlush = function(result) {
+    if (this.callbacks.flush) {
+      this.callbacks.flush(result);
+    }
   };
 
-  SerialConnection.prototype.onRead = function(readInfo) {
+  SerialConnection.prototype.onRead = function(readData) {
     if (this.callbacks.read) {
-      this.callbacks.read(readInfo);
+      this.callbacks.read(readData);
     }
   };
 
@@ -241,31 +278,22 @@ var openSerialIDs = [];
     return String.fromCharCode.apply(null, unis);
   };
 
-  window.PinoccioSerial = {
+  window.PinoccioSerial2 = {
     SerialConnection : SerialConnection,
     closeAll : function(cbDone) {
-      debugLog("Closing all old connections");
-      chrome.storage.local.get(["connections"], function(items) {
-        if (!items || !items.connections || items.connections.length == 0) {
-          return setTimeout(cbDone, 0);
-        }
-        async.forEach(items.connections, function(connId, cbStep) {
-          debugLog("Closing ", connId);
-          chrome.serial.close(connId, function() {
-            cbStep()
+      chrome.serial.getConnections(function(connInfos) {
+        async.forEach(connInfos, function(connInfo, cbStep) {
+          chrome.serial.disconnect(connInfo.connectionId, function(result) {
+            cbStep();
           });
         }, function() {
-          chrome.storage.local.remove(["connections"], function() {
-            cbDone();
-          });
-        })
+          cbDone();
+        });
       });
     },
     getDevices : function(cbDone) {
-      chrome.serial.getPorts(function(ports) {
-        cbDone(ports.map(function(port) { return {path:port}; }));
-      });
-    },
-    saveConnections : saveConnections  }
+      chrome.serial.getDevices(cbDone);
+    }
+  }
 })(window);
 

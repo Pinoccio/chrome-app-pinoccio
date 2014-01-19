@@ -1,4 +1,4 @@
-var DEBUG_MODE = false;
+var DEBUG_MODE = true;
 var timeout = 100;
 var clientSock;
 
@@ -24,11 +24,12 @@ chrome.runtime.onInstalled.addListener(function(details) {
 });
 
 chrome.runtime.onSuspend.addListener(function() {
-  chrome.storage.local.set({lastUsedSocket:null});
 });
 
 chrome.runtime.onMessageExternal.addListener(function(msg, sender, responder) {
-// TODO:  Bootloader type stufff
+  if (chrome.serial.getDevices) {
+    PinoccioSerial = PinoccioSerial2;
+  }
 /*
    var device = new pinoccio.Device(port);
    device.connect(portName, function() {
@@ -102,11 +103,11 @@ var cmds = {
 
       console.log("We got it!");
       var conn = device.conn;
-
+      conn.flush(function() {
         console.log("Going to run %s", msg.command.trim());
         conn.unechoWrite(msg.command.trim() + "\n", function() {
           // TODO Make this multiline aware
-          conn.readUntilPrompt("\n>", function(err, data) {
+          conn.readUntilPrompt("> ", function(err, data) {
             var resp = {};
             if (err) {
               resp.error = err;
@@ -117,6 +118,7 @@ var cmds = {
             responder(resp);
           });
         });
+      });
     });
   }
 };

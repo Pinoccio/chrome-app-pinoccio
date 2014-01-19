@@ -7,7 +7,7 @@
 
   "app":{
     "background":{
-      "scripts":["pinoccio.js", "serial.js","async.js", "main.js"]
+      "scripts":["pinoccio.js", "serial.js", "serial2.js", "async.js", "main.js"]
     }
   },
   "permissions":[

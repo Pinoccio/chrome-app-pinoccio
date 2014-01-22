@@ -15,7 +15,7 @@ var openSerialIDs = [];
   }
 
   SerialConnection.prototype.connect = function(device, callback) {
-    serial.open(device, {bitrate:38400}, this.onOpen.bind(this))
+    serial.open(device, {bitrate:115200}, this.onOpen.bind(this))
     this.callbacks.connect = callback;
   };
 
@@ -83,17 +83,18 @@ var openSerialIDs = [];
         if (readInfo.bytesRead > 0) {
           emptyReadCount = 0;
           readBuffer += self.ab2str(readInfo.data);
+
+          //console.log("Read Buffer", readBuffer);
+          var tailPos = readBuffer.length - prompt.length;
+          if (readBuffer.substring(tailPos, tailPos + prompt.length) == prompt) {
+            return callback(null, readBuffer.substring(0, tailPos));
+          }
         } else {
           readWait = 100;
           if (++emptyReadCount > 200) {
             return callback("Could not read");
           }
         }
-      }
-      //console.log("Read Buffer", readBuffer);
-      var tailPos = readBuffer.length - prompt.length;
-      if (readBuffer.substring(tailPos, tailPos + prompt.length) == prompt) {
-        return callback(null, readBuffer.substring(0, tailPos));
       }
       setTimeout(function() { self.read(handleRead); }, readWait);
     }

@@ -376,7 +376,7 @@ function checkForDevice(timeout, onFound) {
 
   console.log("Checking for USB device");
   var curTimer;
-  chrome.usb.findDevices({"vendorId": VENDOR_ID, "productId": PRODUCT_ID}, function(devices) {
+  chrome.usb.getDevices({"vendorId": VENDOR_ID, "productId": PRODUCT_ID}, function(devices) {
     if (devices && devices.length > 0) {
       console.log("our USB is plugged in");
       foundWrapper(null, true);

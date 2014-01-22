@@ -15,7 +15,7 @@ var openSerialIDs = [];
   }
 
   SerialConnection.prototype.connect = function(device, callback) {
-    serial.open(device, {bitrate:38400}, this.onOpen.bind(this))
+    serial.open(device, {bitrate:115200}, this.onOpen.bind(this))
     this.callbacks.connect = callback;
   };
 

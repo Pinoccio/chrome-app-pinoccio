@@ -470,7 +470,7 @@ function trySerial(port, cbDone) {
       conn.connect(port, cbStep);
     },
     function(cbStep) {
-      console.log("Timeout");
+      console.log("Waiting a bit");
       setTimeout(cbStep, 5000);
     },
     function(cbStep) {

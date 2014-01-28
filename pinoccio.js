@@ -426,6 +426,21 @@ function checkForDevice(timeout, onFound) {
   });
 }
 
+var usbCheckTimer;
+function cancelUSBPluggedIn() {
+  clearTimeout(usbCheckTimer);
+}
+
+function checkUSBPluggedIn(timeout, cbDone) {
+  chrome.usb.getDevices({"vendorId": VENDOR_ID, "productId": PRODUCT_ID}, function(devices) {
+    if (devices && devices.length > 0) {
+      usbCheckTimer = setTimeout(function() { checkUSBPluggedIn(timeout, cbDone); }, timeout);
+    } else {
+      cbDone();
+    }
+  });
+}
+
 var connectedDevice = undefined;
 
 function forgetDevice(cbDone) {
@@ -567,7 +582,9 @@ window.pinoccio = {
   Device:Device,
   checkForDevice:checkForDevice,
   findSerial:findSerial,
-  forgetDevice:forgetDevice
+  forgetDevice:forgetDevice,
+  checkUSBPluggedIn:checkUSBPluggedIn,
+  cancelUSBPluggedIn:cancelUSBPluggedIn
 };
 
 })(window);

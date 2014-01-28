@@ -40,6 +40,20 @@ chrome.runtime.onMessageExternal.addListener(function(msg, sender, responder) {
    });
  */
 var cmds = {
+  waitForUnplug:function() {
+    if (msg.cancel === true) {
+      pinoccio.cancelUSBPluggedIn();
+      return responder({msg:"Canceled the usb check."});
+    }
+
+    if (!msg.interval) {
+      return responder({error:"An interval must be specified"});
+    }
+
+    pinoccio.checkUSBPluggedIn(msg.interval, function() {
+      responder({unplugged:true, msg:"The device was unplugged"});
+    });
+  },
   fetchAndProgram:function() {
     var req = new XMLHttpRequest();
     req.onload = function() {

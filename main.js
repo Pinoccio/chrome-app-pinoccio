@@ -1,4 +1,4 @@
-var DEBUG_MODE = true;
+var DEBUG_MODE = false;
 var timeout = 100;
 var clientSock;
 
@@ -40,6 +40,32 @@ chrome.runtime.onMessageExternal.addListener(function(msg, sender, responder) {
    });
  */
 var cmds = {
+  fetchAndProgram:function() {
+    var req = new XMLHttpRequest();
+    req.onload = function() {
+      console.log("Loaded ", typeof this.responseText);
+      var programHex = this.responseText;
+      pinoccio.findSerial(function(err, device) {
+        if (err) {
+          console.error(err);
+          return responder({error:err});
+        }
+
+        device.saveProgram(programHex.trim(), function(err) {
+          var resp = {};
+          if (err) resp.error = err;
+          responder(resp);
+        });
+      });
+    };
+    req.onError = function() {
+      console.error("ZOMG ", arguments);
+      responder({error:"Unable to fetch the program contents."});
+    };
+    console.log("Fetching ", msg.url);
+    req.open("get", msg.url, true);
+    req.send();
+  },
   program:function() {
     pinoccio.findSerial(function(err, device) {
       if (err) {

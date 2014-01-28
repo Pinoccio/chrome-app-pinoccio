@@ -8,20 +8,35 @@ var pageDelay = 10;
 (function() {
 
 function Device() {
+  this.port = "";
   this.conn = undefined;
-  this.blSeq = 1; // Bootloader command sequence
+  this.blSeq = 0; // Bootloader command sequence
 }
 Device.prototype.connect = function(port, cbDone) {
   if (this.conn) setTimeout(cbDone, 0);
 
+  this.port = port;
+  console.log("Set port to ", this.port);
   this.conn = new PinoccioSerial.SerialConnection();
-  this.conn.connect(port, function(err) {
+  this.conn.connect(this.port, function(err) {
     cbDone(err);
   });
 };
 Device.prototype.restart = function(cbDone) {
   var self = this;
   async.series([
+    function(cbStep) {
+      PinoccioSerial.closeAll(function() {
+        cbStep()
+      });
+    },
+    function(cbStep) {
+      self.conn = new PinoccioSerial.SerialConnection();
+      self.conn.connect(self.port, function(err) {
+        console.log("Setup the new connection to ", self.port, err);
+        cbStep(err);
+      });
+    },
     function(cbStep) {
       self.conn.setControlSignals({rts:true, dtr:true}, function() {
         cbStep();
@@ -45,7 +60,7 @@ Device.prototype.restart = function(cbDone) {
 Device.prototype.drain = function(cbDone) {
   var self = this;
   self.conn.flush(function() {
-    self.conn.read(300, function(readInfo) {
+    self.conn.read(1000, function(readInfo) {
       self.conn.flush(function() {
         cbDone();
       });
@@ -180,14 +195,16 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
 
 Device.prototype.signOn = function(cbDone) {
   var self = this;
-  self.restart(function() {
-    self.drain(function() {
+  self.restart(function(err) {
+    console.log(err);
+    //self.drain(function() {
       self.sendBootloadCommand([0x01], function(err, pkt) {
-        console.log("Err", err);
+        if (err) return cbDone(err);
         console.log("Packet: ", pkt);
+        if (!pkt || !pkt.message || pkt.message.length == 1) return cbDone("Unable to sign on to device");
         cbDone();
       });
-    });
+    //});
   });
 }
 // Save the given progrma to the chip
@@ -198,6 +215,7 @@ Device.prototype.saveProgram = function(programData, cbDone) {
   var curPos = 0;
   var validProgram = false;
   programData.split("\n").forEach(function(programLine) {
+    //console.log("Checking ", programLine);
     if (validProgram) return;
     if (programLine[0] != ":") {
       throw new Error("Invalid program, data format incorrect");
@@ -206,6 +224,17 @@ Device.prototype.saveProgram = function(programData, cbDone) {
     // If it's the end we're good
     if (programLine == ":00000001FF") {
       validProgram = true;
+      return;
+    }
+
+    var recordType = parseInt(programLine.substring(8, 9), 10);
+    if (recordType == 2) {
+      // This is a extended segment address, let's reset and keep going, we put it all together
+      curPos = 0;
+      return;
+    } else if (recordType != 0) {
+      console.error("Unexpected record type %d", recordType);
+      throw new Error("Invalid program, could not parse unknown record type " + recordType);
       return;
     }
 
@@ -240,7 +269,9 @@ Device.prototype.saveProgram = function(programData, cbDone) {
     },
     function(cbStep) {
       // Enter programming mode
+      console.log("Entering programming mode");
       self.sendBootloadCommand([0x10, 0xc8, 0x64, 0x19, 0x20, 0x00, 0x53, 0x03, 0xac, 0x53, 0x00, 0x00], function(err, resp) {
+        console.log(err);
         console.log(resp);
         cbStep();
       });
@@ -425,6 +456,7 @@ function findSerial(cbDone) {
             console.log("This is the one: ", device.path);
             port = device.path;
             connectedDevice = new Device;
+            connectedDevice.port = port;
             connectedDevice.conn = conn;
             cbStep(true);
           });
@@ -515,9 +547,11 @@ function trySerial(port, cbDone) {
       conn.readUntilPrompt("> ", function(err, readData) {
         if (err) return cbStep(err);
         //console.log("Read -%s-", readData);
-        if (/Scout ready -/.test(readData)) {
+        if (/Scout ready/.test(readData)) {
           console.log("Found it");
           foundIt = true;
+        } else {
+          console.error("No scout ready");
         }
         cbStep();
       });

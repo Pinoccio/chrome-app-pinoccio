@@ -22,7 +22,8 @@
           "productId":24657
         }
       ]
-    }
+    },
+    "http://hq.pinocc.io/*"
   ],
   "externally_connectable": {
     "matches": ["*://*.pinocc.io/*", "*://localhost/*"]

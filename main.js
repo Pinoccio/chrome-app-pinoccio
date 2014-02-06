@@ -40,6 +40,9 @@ chrome.runtime.onMessageExternal.addListener(function(msg, sender, responder) {
    });
  */
 var cmds = {
+  getManifest:function(){
+    responder(chrome.runtime.getManifest());
+  },
   waitForUnplug:function() {
     if (msg.cancel === true) {
       pinoccio.cancelUSBPluggedIn();

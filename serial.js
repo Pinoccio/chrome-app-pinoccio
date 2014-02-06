@@ -84,14 +84,14 @@ var openSerialIDs = [];
           emptyReadCount = 0;
           readBuffer += self.ab2str(readInfo.data);
 
-          //console.log("Read Buffer", readBuffer);
+          // console.log("Read Buffer", readBuffer);
           var tailPos = readBuffer.length - prompt.length;
           if (readBuffer.substring(tailPos, tailPos + prompt.length) == prompt) {
             return callback(null, readBuffer.substring(0, tailPos));
           }
         } else {
-          readWait = 100;
-          if (++emptyReadCount > 200) {
+          readWait = 50;
+          if (++emptyReadCount > 100) {
             return callback("Could not read");
           }
         }

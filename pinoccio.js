@@ -518,10 +518,7 @@ function trySerial(port, cbDone) {
     },
     function(cbStep) {
       console.log("Waiting a bit");
-      setTimeout(cbStep, 5000);
-    },
-    function(cbStep) {
-      setTimeout(cbStep, 0);
+      setTimeout(cbStep, 1000);
     },
     /*
     function(cbStep) {

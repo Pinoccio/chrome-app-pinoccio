@@ -559,7 +559,7 @@ function trySerial(port, cbDone) {
       conn.readUntilPrompt("> ", function(err, readData) {
         if (err) return cbStep(err);
         //console.log("Read -%s-", readData);
-        if (/Scout ready/.test(readData)) {
+        if (/Pinoccio/.test(readData)) {
           console.log("Found it");
           foundIt = true;
         } else {

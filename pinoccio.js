@@ -457,7 +457,7 @@ function findSerial(cbDone) {
     return cbDone(null, connectedDevice);
   }
 
-  var usbttyRE = /(tty\.usb|ttyACM)/g;
+  var usbttyRE = /(tty\.usb|ttyACM|COM\d)/g;
   var port;
   console.log("Going to close all");
   PinoccioSerial.closeAll(function() {

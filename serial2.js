@@ -42,7 +42,7 @@ var serialConnections = {};
     console.log(serial);
     var options = {
       name:"Pinoccio",
-      bitrate:38400
+      bitrate:115200
     };
     serial.connect(device, options, this.onOpen.bind(this))
     this.callbacks.connect = callback;

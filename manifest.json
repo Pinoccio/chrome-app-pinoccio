@@ -1,9 +1,9 @@
 {
   "manifest_version": 2,
 
-  "name": "Pinoccio Dev",
+  "name": "Pinoccio",
   "description": "Setup and connect to your Pinoccio devices.",
-  "version": "1.2",
+  "version": "1.2.3",
 
   "app":{
     "background":{
@@ -26,10 +26,10 @@
     "*://*.pinocc.io/*"
   ],
   "externally_connectable": {
-    "matches": ["*://*.pinocc.io/*", "*://localhost/*"]
+    "matches": ["*://*.pinocc.io/*"]
   },
   "icons": {
-    "16": "icon-dev@16.png",
-    "128": "icon-dev@128.png"
+    "16": "icon@16.png",
+    "128": "icon@128.png"
   }
 }

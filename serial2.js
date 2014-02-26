@@ -293,9 +293,7 @@ var serialConnections = {};
       });
     },
     getDevices : function(cbDone) {
-      chrome.serial.getDevices(function(ports) {
-      	cbDone();
-      });
+      chrome.serial.getDevices(cbDone);
     }
   }
 })(window);

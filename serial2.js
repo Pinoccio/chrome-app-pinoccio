@@ -89,11 +89,12 @@ var serialConnections = {};
       throw 'Invalid connection';
     }
 
+    this.callbacks.read = callback;
+
     if (this.readBuffer.length == 0) {
       return this.onRead("");
     }
 
-    this.callbacks.read = callback;
     var actualReadLen = Math.min(readlen, this.readBuffer.length);
     //console.log("actualReadLen(%d)", actualReadLen);
     var readData = this.readBuffer.slice(0, actualReadLen);
@@ -292,7 +293,9 @@ var serialConnections = {};
       });
     },
     getDevices : function(cbDone) {
-      chrome.serial.getDevices(cbDone);
+      chrome.serial.getDevices(function(ports) {
+      	cbDone();
+      });
     }
   }
 })(window);

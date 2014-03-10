@@ -57,6 +57,33 @@ var cmds = {
       responder({unplugged:true, msg:"The device was unplugged"});
     });
   },
+  fetchAndProgramPort:function() {
+    var req = new XMLHttpRequest();
+    req.onload = function() {
+      console.log("Loaded ", typeof this.responseText);
+      var programHex = this.responseText;
+
+      var device = new pinoccio.Device();
+      device.connect(msg.port, function(err) {
+        if (err) {
+          responder({error:err});
+          return;
+        }
+        device.saveProgram(programHex.trim(), function(err) {
+          var resp = {};
+          if (err) resp.error = err;
+          responder(resp);
+        });
+      });
+    }
+    req.onError = function() {
+      console.error("ZOMG ", arguments);
+      responder({error:"Unable to fetch the program contents."});
+    };
+    console.log("Fetching ", msg.url);
+    req.open("get", msg.url, true);
+    req.send();
+  },
   fetchAndProgram:function() {
     var req = new XMLHttpRequest();
     req.onload = function() {
@@ -130,6 +157,9 @@ var cmds = {
     });
   },
   close:function() {
+    pinoccio.closeAll(function() {
+      responder({});
+    });
   },
   bitlash:function() {
     // TODO:  Support timeout

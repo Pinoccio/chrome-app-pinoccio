@@ -578,13 +578,18 @@ function trySerial(port, cbDone) {
   );
 }
 
+function closeAll(cbDone) {
+  PinoccioSerial.closeAll(cbDone);
+}
+
 window.pinoccio = {
   Device:Device,
   checkForDevice:checkForDevice,
   findSerial:findSerial,
   forgetDevice:forgetDevice,
   checkUSBPluggedIn:checkUSBPluggedIn,
-  cancelUSBPluggedIn:cancelUSBPluggedIn
+  cancelUSBPluggedIn:cancelUSBPluggedIn,
+  closeAll:closeAll
 };
 
 })(window);

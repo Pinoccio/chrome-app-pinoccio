@@ -138,8 +138,8 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
     return state < (cmdReadStates.length - 1) && !timedout
   }, function(cbStep) {
     self.conn.read(1, function(readInfo) {
-      if (readInfo.bytesRead > 0) {
-        var curByte = (new Uint8Array(readInfo.data))[0];
+      if (readInfo.length > 0) {
+        var curByte = readInfo.charCodeAt(0);
         debugLog("Read: state(%s) byte(%d) char(%s)", cmdReadStates[state], curByte, String.fromCharCode(curByte));
       } else {
         debugLog("There was no data yet, waiting for some");
@@ -149,7 +149,7 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
       switch(state) {
       case 0:
         if (curByte != 0x1b) {
-          return cbStep("Invalid header byte expected 0x1b got " + curByte)
+          return cbStep("Invalid header byte expected 0x1b got -%s-", curByte)
         }
         ++state;
         break;
@@ -271,8 +271,8 @@ Device.prototype.saveProgram = function(programData, cbDone) {
       // Enter programming mode
       console.log("Entering programming mode");
       self.sendBootloadCommand([0x10, 0xc8, 0x64, 0x19, 0x20, 0x00, 0x53, 0x03, 0xac, 0x53, 0x00, 0x00], function(err, resp) {
-        console.log(err);
-        console.log(resp);
+        if (err) console.error(err);
+        console.log("Programming mode response: ", resp);
         cbStep();
       });
     },
@@ -320,6 +320,8 @@ Device.prototype.saveProgram = function(programData, cbDone) {
       }, 1000);
     }
   ], function(err) {
+    if (err) console.error(err);
+    console.log("Done programming");
     cbDone(err);
   });
 }
@@ -338,7 +340,8 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
           var cmdBuf = [0x06, 0x80, 0x00, 0x00, 0x00];
           cmdBuf[3] = useaddr >> 8;
           cmdBuf[4] = useaddr & 0xff;
-          self.sendBootloadCommand(cmdBuf, function() {
+          self.sendBootloadCommand(cmdBuf, function(err, pkt) {
+            if (err) console.error(err);
             cbStep();
           });
         },

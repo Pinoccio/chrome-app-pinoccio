@@ -99,6 +99,7 @@ var serialConnections = {};
     //console.log("actualReadLen(%d)", actualReadLen);
     var readData = this.readBuffer.slice(0, actualReadLen);
     this.readBuffer = this.readBuffer.slice(actualReadLen);
+    readData.bytesRead = actualReadLen;
     //console.log("Read ", readData);
     this.onRead(readData);
   };

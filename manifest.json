@@ -2,8 +2,8 @@
   "manifest_version": 2,
 
   "name": "Pinoccio",
-  "description": "Setup and connect to your Pinoccio devices.",
-  "version": "1.2.3",
+  "description": "Set up and connect your Pinoccio Scouts.",
+  "version": "1.2.6",
 
   "app":{
     "background":{

@@ -262,7 +262,7 @@ Device.prototype.saveProgram = function(programData, cbDone) {
   var self = this;
   async.series([
     function(cbStep) {
-      setTimeout(cbStep, 1000);
+      setTimeout(cbStep, 500);
     },
     function(cbStep) {
       self.signOn(cbStep);
@@ -460,7 +460,7 @@ function findSerial(cbDone) {
     return cbDone(null, connectedDevice);
   }
 
-  var usbttyRE = /(tty\.usb|ttyACM|COM\d)/g;
+  var usbttyRE = /(tty\.usb|ttyACM|COM\d+)/;
   var port;
   console.log("Going to close all");
   PinoccioSerial.closeAll(function() {

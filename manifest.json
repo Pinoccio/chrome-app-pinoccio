@@ -3,7 +3,7 @@
 
   "name": "Pinoccio",
   "description": "Set up and connect your Pinoccio Scouts.",
-  "version": "1.2.7",
+  "version": "1.2.8",
 
   "app":{
     "background":{

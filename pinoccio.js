@@ -192,7 +192,7 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
       cbStep();
     });
   }, function(err) {
-    cbDone(err, pkt);
+    cbDone(err || timedout, pkt);
   })
 };
 

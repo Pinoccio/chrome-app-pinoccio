@@ -149,9 +149,12 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
       switch(state) {
       case 0:
         if (curByte != 0x1b) {
-          return cbStep("Invalid header byte expected 0x1b got -%s-", curByte)
+          debugLog("Invalid header byte expected 0x1b got byte(%d) char(%s)", curByte, String.fromCharCode(curByte));
+          // Stay in state 0, hopefully we'll get back into sync before
+          // the timeout.
+        } else {
+          ++state;
         }
-        ++state;
         break;
       case 1:
         var prevSeq = self.blSeq - 1;

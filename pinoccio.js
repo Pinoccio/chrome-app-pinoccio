@@ -370,6 +370,7 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
               // Retry 3 times
               if (retries++ > 3)
                 return cbStep(err);
+              console.log("Pagedwrite failed, retrying");
             }
 
             setTimeout(cbStep, 4);

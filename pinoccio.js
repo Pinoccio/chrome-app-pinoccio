@@ -132,7 +132,7 @@ Device.prototype.readBootloadCommand = function(timeout, cbDone) {
     cbDone = timeout;
     timeout = undefined;
   }
-  if (timeout === undefined) timeout = 2000;
+  if (timeout === undefined) timeout = 500;
   setTimeout(function() { timedout = true; }, timeout);
   async.whilst (function() {
     return state < (cmdReadStates.length - 1) && !timedout

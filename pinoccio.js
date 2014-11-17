@@ -332,6 +332,7 @@ Device.prototype.saveProgram = function(programData, cbDone) {
 Device.prototype.pagedWrite = function(bytes, cbDone) {
   var self = this;
   var pageaddr = 0;
+  var retries = 0;
 
   async.whilst(
     function() { return pageaddr < bytes.length; },
@@ -362,8 +363,15 @@ Device.prototype.pagedWrite = function(bytes, cbDone) {
           }
           //console.log(cmdBuf.concat(writeBytes));
           self.sendBootloadCommand(cmdBuf.concat(writeBytes), function(err, resp) {
-            if (err) return cbStep(err);
-            pageaddr += writeBytes.length;
+            if (!err) {
+              pageaddr += writeBytes.length;
+              retries = 0;
+            } else {
+              // Retry 3 times
+              if (retries++ > 3)
+                return cbStep(err);
+            }
+
             setTimeout(cbStep, 4);
           });
         },
